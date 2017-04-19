@@ -322,7 +322,7 @@ def _read_compress_mat(fd, compresstype):
     return globmin  + globrange * 1.52590218966964e-05 * val
   mat = np.empty((rows,cols),dtype=float)
   # - cols because we firstly read the colheaders
-  size = cols * (percolheader.itemsize + rows) - (percolheader.itemsize*cols) if compresstype == "CM" else (2 * rows * cols) - (percolheader.itemsize*cols);
+  size = cols * (percolheader.itemsize + rows) - (percolheader.itemsize*cols) if compresstype == 'CM ' else (2 * rows * cols) - (percolheader.itemsize*cols);
   # The data is structed as [Colheader, ... , Colheader, Data, Data , .... ]
   #                         {           cols           }{     size         }
   colheaders = np.fromfile(fd,dtype=percolheader, count=cols)
