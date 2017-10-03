@@ -320,11 +320,46 @@ def read_mat(file_or_fd):
     if fd is not file_or_fd: fd.close()
   return mat
 
+# Omitting the int variable format, since it is not used for reading
+# Check :
+# https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.cc
+# https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.h
+globalheader=np.dtype([('minvalue','float32'),('range','float32'),('num_rows','<i'),('num_cols','<i')])
+percolheader=np.dtype([('percentile_0','uint16'),('percentile_25','uint16'),('percentile_75','uint16'),('percentile_100','uint16')])
+
+def uncompress(value,p0,p25,p75,p100):
+  if value <= 64:
+    return p0 + (p25 - p0) * value * (1./64)
+  elif value <= 192:
+    return p25 + (p75 - p25) * (value - 64) * (1./128)
+  else:
+    return p75 + (p100 - p75) * (value - 192) * (1./63)
+
+
+def _read_compress_mat(fd, compresstype):
+  globhead = np.fromfile(fd,dtype=globalheader,count=1)
+  globrange, globmin, rows, cols = globhead['range'][0],globhead['minvalue'][0],globhead['num_rows'][0],globhead['num_cols'][0]
+  def uinttofloat(val):
+    return globmin  + globrange * 1.52590218966964e-05 * val
+  mat = np.empty((rows,cols),dtype=float)
+  # - cols because we firstly read the colheaders
+  size = cols * (percolheader.itemsize + rows) - (percolheader.itemsize*cols) if compresstype == 'CM ' else (2 * rows * cols) - (percolheader.itemsize*cols);
+  # The data is structed as [Colheader, ... , Colheader, Data, Data , .... ]
+  #                         {           cols           }{     size         }
+  colheaders = np.fromfile(fd,dtype=percolheader, count=cols)
+  data  = np.fromfile(fd,dtype='B', count = size)
+  for i,colhead in enumerate(colheaders):
+    colhead = map(uinttofloat,colhead)
+    mat[:,i] = [uncompress(data[j],*colhead) for j in xrange(i*rows,(i*rows)+rows)]
+  return mat
+
 def _read_mat_binary(fd):
   # Data type
-  type = fd.read(3)
-  if type == 'FM ': sample_size = 4 # floats
-  if type == 'DM ': sample_size = 8 # doubles
+  dtype = fd.read(3)
+  # CM and CM1 are possible values
+  if dtype.startswith('CM'): return _read_compress_mat(fd, dtype)
+  if dtype == 'FM ': sample_size = 4 # floats
+  if dtype == 'DM ': sample_size = 8 # doubles
   assert(sample_size > 0)
   # Dimensions
   fd.read(1)
