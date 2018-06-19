@@ -164,6 +164,23 @@ def read_vec_int(file_or_fd):
   if fd is not file_or_fd : fd.close() # cleanup
   return ans
 
+# Added by Ke Wang
+def read_ali_scp(line):
+    """ Read particular line's answer from scp file.
+    E.g.
+    >>> f = open('ali.scp', 'r')
+    >>> lines = f.readlines()
+    >>> f.close()
+    >>> for line in lines:
+    >>>     key, vec = read_ali_ark(line)
+    """
+    key, filename = line.strip().split()
+    rxfile, offset = filename.rsplit(':', 1)
+    with open(rxfile, 'rb') as fd:
+        fd.seek(int(offset))
+        vec = read_vec_int(fd)
+        return key, vec
+
 # Writing,
 def write_vec_int(file_or_fd, v, key=''):
   """ write_vec_int(f, v, key='')
