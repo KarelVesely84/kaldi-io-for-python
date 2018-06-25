@@ -165,14 +165,14 @@ def read_vec_int(file_or_fd):
   return ans
 
 # Added by Ke Wang
-def read_ali_scp(line):
+def read_ali_scp_line(line):
     """ Read particular line's answer from scp file.
     E.g.
     >>> f = open('ali.scp', 'r')
     >>> lines = f.readlines()
     >>> f.close()
     >>> for line in lines:
-    >>>     key, vec = read_ali_ark(line)
+    >>>     key, vec = read_ali_scp_line(line)
     """
     key, filename = line.strip().split()
     rxfile, offset = filename.rsplit(':', 1)
@@ -350,14 +350,14 @@ def read_mat_scp(file_or_fd):
     if fd is not file_or_fd : fd.close()
 
 # Added by Ke Wang 
-def read_scp_line(line):
+def read_mat_scp_line(line):
   """ Read particular line's matrix from scp file.
   E.g.
   >>> f = open('feat.scp', 'r')
   >>> lines = f.readlines()
   >>> f.close()
   >>> for line in lines:
-  >>>    key, mat = read_scp_line(line)
+  >>>    key, mat = read_mat_scp_line(line)
   """
   (key, filename) = line.strip().split()
   rxfile, offset = filename.rsplit(':', 1)
