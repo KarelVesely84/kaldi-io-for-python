@@ -17,6 +17,15 @@ import kaldi_io
 for key,mat in kaldi_io.read_mat_scp(file):
   ...
 ```
+##### Reading particular scp line
+```python
+import kaldi_io
+f = open('feat.scp', 'r')
+lines = f.readlines()
+f.close()
+for line in lines:
+    key, mat = read_mat_scp_line(line)
+```
 
 ###### Writing feature ark to file/stream:
 ```python
