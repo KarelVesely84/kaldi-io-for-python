@@ -76,6 +76,15 @@ class KaldiIoTest(unittest.TestCase):
             i32_vec3 = { k:v for k,v in kaldi_io.read_vec_int_ark('ark:copy-int-vector ark:tests/data/ali.ark ark:- |') }
             flt_vec4 = { k:v for k,v in kaldi_io.read_vec_flt_ark('ark:copy-vector ark:tests/data/conf.ark ark:- |') }
 
+    def testReadRawSCP(self):
+        """
+        Test read for raw scp strings
+        """
+        correct_vec = kaldi_io.read_mat('tests/data/feats_ascii.ark:39')
+        eg_text = 'AMI_ES2011a_H00_FEE041_0003427_0003714 tests/data/feats_ascii.ark:39'
+        key, mat = kaldi_io.read_scp_raw(eg_text)
+        assert mat.all() == correct_vec.all()
+
 
 # if stand-alone, run this...
 if __name__ == '__main__':

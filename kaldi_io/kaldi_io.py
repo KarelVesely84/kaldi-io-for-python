@@ -383,6 +383,29 @@ def read_mat(file_or_fd):
         if fd is not file_or_fd: fd.close()
     return mat
 
+
+def read_scp_raw(text):
+    """
+    Parameters:
+    ------------
+    text: str
+        scp formatted string
+
+    Returns:
+    ------------
+    key: str
+        ark file's identifier
+    mat: array
+        ark vector corresponding to the audio sample
+    Example:
+    -----------
+    key, mat = read_scp_raw(
+        AMI_ES2011a_H00_FEE041_0003427_0003714 tests/data/feats_ascii.ark:39)
+    """
+    key, rxfile = text.split()
+    return key, read_mat(rxfile)
+
+
 def _read_mat_binary(fd):
     # Data type
     header = fd.read(3).decode()
@@ -401,6 +424,7 @@ def _read_mat_binary(fd):
     else : raise BadSampleSize
     mat = np.reshape(vec,(rows,cols))
     return mat
+
 
 def _read_mat_ascii(fd):
     rows = []
