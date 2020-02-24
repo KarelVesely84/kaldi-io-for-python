@@ -409,6 +409,7 @@ def _read_mat_binary(fd):
     mat = np.reshape(vec,(rows,cols))
     return mat
 
+
 def _read_mat_ascii(fd):
     rows = []
     while 1:
@@ -460,6 +461,182 @@ def _read_compressed_mat(fd, format):
     return mat.T # transpose! col-major -> row-major,
 
 
+###
+def read_file_segm(rxfile, start, end):
+
+    assert( len(rxfile)==len(start)==len(end) )
+
+    data = []
+    try:
+        for i,rxf in enumerate( rxfile ):
+            data.append( read_mat_n(rxf, start[i], end[i]) )
+    except:
+          print("An exception occurred")
+    return data 
+                
+def read_mat_ark_n(file_or_fd, start, end):
+    """ generator(key,mat) = read_mat_ark(file_or_fd)
+     Returns generator of (key,matrix) tuples, read from ark file/stream.
+     file_or_fd : scp, gzipped scp, pipe or opened file descriptor.
+
+     Iterate the ark:
+     for key,mat in kaldi_io.read_mat_ark(file):
+         ...
+
+     Read ark to a 'dictionary':
+     d = { key:mat for key,mat in kaldi_io.read_mat_ark(file) }
+    """
+    fd = open_or_fd(file_or_fd)
+    try:
+        key = read_key(fd)
+        while key:
+            mat = read_mat_n(fd, start, end)
+            yield key, mat
+            key = read_key(fd)
+    finally:
+        if fd is not file_or_fd : fd.close()
+
+
+def read_mat_n(file_or_fd, start, end):
+    """ [mat] = read_mat(file_or_fd)
+     Reads single kaldi matrix, supports ascii and binary.
+     file_or_fd : file, gzipped file, pipe or opened file descriptor.
+    """
+    fd = open_or_fd(file_or_fd)
+    try:
+        binary = fd.read(2).decode()
+        if binary == '\0B' :
+            mat = _read_mat_binary_n(fd, start, end)
+        else:
+            assert(binary == ' [')
+            mat = _read_mat_ascii(fd, start, end)
+    finally:
+        if fd is not file_or_fd: fd.close()
+    return mat
+
+def _read_mat_binary_n(fd, start, end):
+    # Data type
+    header = fd.read(3).decode()
+    # 'CM', 'CM2', 'CM3' are possible values,
+    if header.startswith('CM'): return _read_compressed_mat_n(fd, header, start, end)
+    else: raise NotImplementedError("Binary data without compression is not supported:")
+    assert(sample_size > 0)
+    # Dimensions
+    s1, rows, s2, cols = np.frombuffer(fd.read(10), dtype='int8,int32,int8,int32', count=1)[0]
+    # Read whole matrix
+    rows=n
+    buf = fd.read(rows * cols * sample_size)
+    if sample_size == 4 : vec = np.frombuffer(buf, dtype='float32')
+    elif sample_size == 8 : vec = np.frombuffer(buf, dtype='float64')
+    else : raise BadSampleSize
+    mat = np.reshape(vec,(rows,cols))
+    return mat
+
+
+def _read_mat_ascii_n(fd, start, end):
+    raise NotImplementedError("Text data not supported.")
+
+
+def _read_compressed_mat_n(fd, format, start, end):
+    """ Read a compressed matrix,
+        see: https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.h
+        methods: CompressedMatrix::Read(...), CompressedMatrix::CopyToMat(...),
+    """
+    assert(format == 'CM ') # The formats CM2, CM3 are not supported...
+
+    # Format of header 'struct',
+    global_header = np.dtype([('minvalue','float32'),('range','float32'),('num_rows','int32'),('num_cols','int32')]) # member '.format' is not written,
+    per_col_header = np.dtype([('percentile_0','uint16'),('percentile_25','uint16'),('percentile_75','uint16'),('percentile_100','uint16')])
+
+    # Read global header,
+    globmin, globrange, rows, cols = np.frombuffer(fd.read(16), dtype=global_header, count=1)[0]
+    rows_to_read = end - start
+    
+    # The data is structed as [Colheader, ... , Colheader, Data, Data , .... ]
+    #                                                 {                     cols                     }{         size                 }
+    col_headers = np.frombuffer(fd.read(cols*8), dtype=per_col_header, count=cols)
+    col_headers = np.array([np.array([x for x in y]) * globrange * 1.52590218966964e-05 + globmin for y in col_headers], dtype=np.float32)
+    data = np.zeros((cols, rows_to_read), dtype='uint8')
+    header_offset = fd.tell()
+    for c in range(cols):
+        fd.seek((header_offset + rows*(c) +start) )
+        data[c,:] = np.frombuffer(fd.read(rows_to_read), dtype='uint8', count=rows_to_read)
+
+    # Seek to the next key    
+    fd.seek((header_offset + rows*(c+1) ) )
+
+    mat = np.zeros((cols,rows_to_read), dtype='float32')
+    p0 = col_headers[:, 0].reshape(-1, 1)
+    p25 = col_headers[:, 1].reshape(-1, 1)
+    p75 = col_headers[:, 2].reshape(-1, 1)
+    p100 = col_headers[:, 3].reshape(-1, 1)
+
+    mask_0_64 = (data <= 64)
+    mask_193_255 = (data > 192)
+    mask_65_192 = (~(mask_0_64 | mask_193_255))
+
+    mat += (p0    + (p25 - p0) / 64. * data) * mask_0_64.astype(np.float32)
+    mat += (p25 + (p75 - p25) / 128. * (data - 64)) * mask_65_192.astype(np.float32)
+    mat += (p75 + (p100 - p75) / 63. * (data - 192)) * mask_193_255.astype(np.float32)
+
+    return mat.T # transpose! col-major -> row-major,
+
+
+def get_durations(file_or_fd):
+
+    global_header = np.dtype([('minvalue','float32'),('range','float32'),('num_rows','int32'),('num_cols','int32')]) # member '.format' is not written,
+    durations = []
+    fd = open_or_fd(file_or_fd)
+    try:
+        key = read_key(fd)
+        while key:
+            binary = fd.read(2).decode()
+            if binary == '\0B' :
+                header = fd.read(3).decode()
+                # 'FM', 'DM', 'CM', 'CM2', 'CM3' are possible values,
+                if (header == 'CM '): 
+                    # Read global header,
+                    globmin, globrange, rows, cols = np.frombuffer(fd.read(16), dtype=global_header, count=1)[0]
+                    offset = fd.tell()
+                    fd.seek( offset + cols*8 + rows*cols  ) # 8 is the size of the column header                     
+                else:
+                    raise NotImplementedError("Only compressed data in format CM is supported.")
+            else:
+                raise NotImplementedError("Text data not supported.")
+            durations.append( rows )
+            key = read_key(fd)        
+    finally:
+        if fd is not file_or_fd : fd.close()
+    return durations
+
+def get_durations_file_list( rxfile ):
+
+    global_header = np.dtype([('minvalue','float32'),('range','float32'),('num_rows','int32'),('num_cols','int32')]) # member '.format' is not written,
+    durations = []
+    for rxf in rxfile:
+        try:
+            fd = open_or_fd(rxf) 
+            binary = fd.read(2).decode()
+            if binary == '\0B' :
+                header = fd.read(3).decode()
+                # 'FM', 'DM', 'CM', 'CM2', 'CM3' are possible values,
+                if (header == 'CM '): 
+                    # Read global header,
+                    globmin, globrange, rows, cols = np.frombuffer(fd.read(16), dtype=global_header, count=1)[0]
+                    offset = fd.tell()
+                    fd.seek( offset + cols*8 + rows*cols  ) # 8 is the size of the column header                     
+                else:
+                    raise NotImplementedError("Only compressed data in format CM is supported.")
+            else:
+                raise NotImplementedError("Text data not supported.")
+            durations.append( rows )
+            fd.close()
+        except:
+            print("An exception occurred when reading %s" %rxf)
+            sys.exit(-1)
+    return durations
+
+    
 # Writing,
 def write_mat(file_or_fd, m, key=''):
     """ write_mat(f, m, key='')
