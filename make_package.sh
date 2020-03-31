@@ -2,17 +2,25 @@
 
 exit 0
 
-# Step 1: udpate version in 'setup.py'
+# Step 0: upgrade python packages:
+#python2 -m pip install --upgrade pip
+#python2 -m pip install --user --upgrade setuptools wheel twine
+python3 -m pip install --upgrade pip
+python3 -m pip install --user --upgrade setuptools wheel twine
+
+# Step 1: 'increase' version in 'setup.py'.
 
 # Step 2: make packages,
-# python3 -m pip install --user --upgrade setuptools wheel twine
 rm dist/*
-python2 setup.py bdist_wheel
+#python2 setup.py bdist_wheel # this would create python2 package,
 python3 setup.py sdist bdist_wheel
-#$ ls dist/
-#    kaldi_io-vesis84-0.9.0.tar.gz
-#    kaldi_io_vesis84-0.9.0-py2-none-any.whl
-#    kaldi_io_vesis84-0.9.0-py3-none-any.whl
+
+ll dist/
+# -rw-r--r-- 1 iveselyk speech 13839 Feb 26 13:55 kaldi_io-0.9.2-py3-none-any.whl
+# -rw-r--r-- 1 iveselyk speech  9220 Feb 26 13:55 kaldi_io-0.9.2.tar.gz
+
+# Step 2.1: check the README.md format,
+python3 -m twine check dist/*
 
 # Hint: skip to 'Step 8' to skip sandboxing on 'test.pypi.org'
 

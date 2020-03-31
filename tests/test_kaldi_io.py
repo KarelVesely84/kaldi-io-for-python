@@ -77,6 +77,28 @@ class KaldiIoTest(unittest.TestCase):
             flt_vec4 = { k:v for k,v in kaldi_io.read_vec_flt_ark('ark:copy-vector ark:tests/data/conf.ark ark:- |') }
 
 
+class PosteriorIOTest(unittest.TestCase):
+    def testWriteReadPosteriors(self):
+        data = [[(0, 0.0), (1, 0.1), (2, 0.2)],
+                [(0, 0.00), (1, 0.11), (2, 0.22)],
+                [(0, 0.000), (1, 0.111), (3, 0.333)]]
+        key = 'posterior_test1'
+        with kaldi_io.open_or_fd('tests/data_re-saved/posterior_tests.ark','wb') as w:
+            kaldi_io.write_post(w, data, key=key)
+
+        with kaldi_io.open_or_fd('tests/data_re-saved/posterior_tests.ark', 'rb') as r:
+            posts = [(k, posteriors) for k, posteriors in kaldi_io.read_post_ark(r)]
+            self.assertEqual(len(posts), 1)
+            self.assertEqual(posts[0][0], key)
+            rdata = posts[0][1]
+            self.assertEqual(len(rdata), len(data))
+            for a1, a2 in zip(rdata, data):
+                self.assertEqual(len(a1), len(a2))
+                for ((idx1, p1), (idx, p)) in zip(a1, a2):
+                    self.assertEqual(idx1, idx)
+                    self.assertAlmostEqual(p1, p)
+
+
 # if stand-alone, run this...
 if __name__ == '__main__':
     unittest.main()

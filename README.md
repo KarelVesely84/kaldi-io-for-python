@@ -1,7 +1,7 @@
 kaldi-io-for-python
 ===================
-``Glue'' code connecting kaldi data and python.
--------------------
+'Glue' code connecting kaldi data and python.
+-----------------------------------------------
 
 #### Supported data types
 - vector (integer)
@@ -12,6 +12,7 @@ kaldi-io-for-python
 #### Examples
 
 ###### Reading feature scp example:
+
 ```python
 import kaldi_io
 for key,mat in kaldi_io.read_mat_scp(file):
@@ -22,7 +23,7 @@ for key,mat in kaldi_io.read_mat_scp(file):
 ```python
 import kaldi_io
 with open(ark_file,'wb') as f:
-  for key,mat in dict.iteritems(): 
+  for key,mat in dict.iteritems():
     kaldi_io.write_mat(f, mat, key=key)
 ```
 
@@ -31,10 +32,9 @@ with open(ark_file,'wb') as f:
 import kaldi_io
 ark_scp_output='ark:| copy-feats --compress=true ark:- ark,scp:data/feats2.ark,data/feats2.scp'
 with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
-  for key,mat in dict.iteritems(): 
+  for key,mat in dict.iteritems():
     kaldi_io.write_mat(f, mat, key=key)
 ```
-
 
 #### Install
 - from pypi: `python -m pip --user install kaldi_io`
@@ -44,7 +44,7 @@ with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
 - for local development use: `export PYTHONPATH=${PYTHONPATH}:<kaldi-io-dir>` in `$HOME/.bashrc`
 
 Note: it is recommended to set `$KALDI_ROOT` in your `$HOME/.bashrc` as
-`export KALDI_ROOT=<some_kaldi_dir>`, so you can read/write using 
+`export KALDI_ROOT=<some_kaldi_dir>`, so you can read/write using
 pipes which contain kaldi binaries.
 
 

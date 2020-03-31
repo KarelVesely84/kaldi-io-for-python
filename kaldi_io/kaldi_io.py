@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2014-2019 Brno University of Technology (author: Karel Vesely)
+# Copyright 2014-2020 Brno University of Technology (author: Karel Vesely)
 # Licensed under the Apache License, Version 2.0 (the "License")
 
 from __future__ import print_function
@@ -11,21 +11,34 @@ import numpy as np
 import sys, os, re, gzip, struct
 
 #################################################
-# Adding kaldi tools to shell path,
+# Adding 'kaldi binaries' to shell path,
 
 # Select kaldi,
 if not 'KALDI_ROOT' in os.environ:
     # Default! To change run python with 'export KALDI_ROOT=/some_dir python'
     os.environ['KALDI_ROOT']='/mnt/matylda5/iveselyk/Tools/kaldi-trunk'
 
-# Add kaldi tools to path,
-path = os.popen('echo $KALDI_ROOT/src/bin:$KALDI_ROOT/tools/openfst/bin:$KALDI_ROOT/src/fstbin/:$KALDI_ROOT/src/gmmbin/:$KALDI_ROOT/src/featbin/:$KALDI_ROOT/src/lm/:$KALDI_ROOT/src/sgmmbin/:$KALDI_ROOT/src/sgmm2bin/:$KALDI_ROOT/src/fgmmbin/:$KALDI_ROOT/src/latbin/:$KALDI_ROOT/src/nnetbin:$KALDI_ROOT/src/nnet2bin:$KALDI_ROOT/src/nnet3bin:$KALDI_ROOT/src/online2bin/:$KALDI_ROOT/src/ivectorbin/:$KALDI_ROOT/src/lmbin/')
-os.environ['PATH'] = path.readline().strip() + ':' + os.environ['PATH']
-path.close()
+# See if the path exists,
+if not os.path.exists(os.environ['KALDI_ROOT']):
+    print(80*"#", file=sys.stderr)
+    print("### WARNING, path does not exist: KALDI_ROOT=%s" % os.environ['KALDI_ROOT'], file=sys.stderr)
+    print("###          (please add 'export KALDI_ROOT=<your_path>' in your $HOME/.profile)", file=sys.stderr)
+    print("###          (or run as: KALDI_ROOT=<your_path> python <your_script>.py)", file=sys.stderr)
+    print(80*"#"+"\n", file=sys.stderr)
+
+# Add 'kaldi binaries' to shell path,
+try:
+    path = os.popen('echo $KALDI_ROOT/src/bin:$KALDI_ROOT/tools/openfst/bin:$KALDI_ROOT/src/fstbin/:$KALDI_ROOT/src/gmmbin/:$KALDI_ROOT/src/featbin/:$KALDI_ROOT/src/lm/:$KALDI_ROOT/src/sgmmbin/:$KALDI_ROOT/src/sgmm2bin/:$KALDI_ROOT/src/fgmmbin/:$KALDI_ROOT/src/latbin/:$KALDI_ROOT/src/nnetbin:$KALDI_ROOT/src/nnet2bin:$KALDI_ROOT/src/nnet3bin:$KALDI_ROOT/src/online2bin/:$KALDI_ROOT/src/ivectorbin/:$KALDI_ROOT/src/lmbin/')
+    os.environ['PATH'] = path.readline().strip() + ':' + os.environ['PATH']
+    path.close()
+except:
+    print(80*"#", file=sys.stderr)
+    print("### WARNING: could not modify $PATH, (and add the kaldi binaries...)", file=sys.stderr)
+    print(80*"#"+"\n", file=sys.stderr)
 
 
 #################################################
-# Define all custom exceptions,
+# Define all 'kaldi_io' exceptions,
 class UnsupportedDataType(Exception): pass
 class UnknownVectorHeader(Exception): pass
 class UnknownMatrixHeader(Exception): pass
@@ -345,8 +358,15 @@ def read_mat_scp(file_or_fd):
     fd = open_or_fd(file_or_fd)
     try:
         for line in fd:
-            (key,rxfile) = line.decode().split(' ')
+            (key, rxfile) = line.decode().split(' ')
+            (rxfile, range_slice) = _strip_mat_range(rxfile)
+
+            # TODO, this reads whole file, and then selects the range.
+            # A faster solution would be to change API of read_mat() and load just the frames we need...
             mat = read_mat(rxfile)
+            if range_slice is not None: mat = (mat[range_slice]).copy() # apply the range_slice,
+            #
+
             yield key, mat
     finally:
         if fd is not file_or_fd : fd.close()
@@ -372,6 +392,43 @@ def read_mat_ark(file_or_fd):
             key = read_key(fd)
     finally:
         if fd is not file_or_fd : fd.close()
+
+def _strip_mat_range(rxfile_with_range):
+    """ (stripped_rxfile, range) = _strip_mat_range(rxfile)
+
+    Returns (rxfile, None) if rxfile does not contain a matrix range.
+    Otherwise a tuple containing the stripped rxfile and a tuple of slice objects is returned.
+
+    "/some/dir/feats.ark:0" -> ("/some/dir/feats.ark:0", None)
+    "/some/dir/feats.ark:0[10:19]" -> ("/some/dir/feats.ark:0", slice(10,19))
+    "/some/dir/feats.ark:0[10:19,0:12]" -> ("/some/dir/feats.ark:0", (slice(10,19),slice(0,12)))
+    "/some/dir/feats.ark:0[:,0:12]" -> ("/some/dir/feats.ark:0", (slice(None,None),slice(0,12)))
+
+    rxfile: file descriptor for an ark file that optionally contains an offset or/and a matrix range.
+
+    For info see: "Table I/O (with ranges)" in https://kaldi-asr.org/doc/io_tut.html
+    """
+
+    # search for the form: ...rxfile...[...range...]
+    search_res = re.search('(.+)\[(.+)\]', rxfile_with_range)
+
+    if search_res == None:
+        # 'rxfile_with_range' HAD NO RANGE "[...]" !!!
+        return (rxfile_with_range, None)
+
+    assert(len(search_res.groups()) == 2)
+    rxfile, range_str = search_res.groups() # rxfile = "/some/dir/feats.ark:0", range_str = "10:19,0:12"
+
+    slice_arr = []
+    for r in range_str.split(','): # "10:19,0:12" -> ['10:19', '0:12']
+        s1, s2 = r.split(':') # ':' -> ['', '']
+        i1 = int(s1) if s1 else None
+        i2 = int(s2) if s2 else None
+        slice_arr.append(slice(i1,i2))
+
+    assert(len(slice_arr) > 0)
+    return (rxfile, tuple(slice_arr))
+
 
 def read_mat(file_or_fd):
     """ [mat] = read_mat(file_or_fd)
@@ -773,6 +830,56 @@ def read_post(file_or_fd):
     if fd is not file_or_fd: fd.close()
     return ans
 
+def write_post(file_or_fd, p, key=''):
+    """ write_post(f, p, key='')
+     Write a binary kaldi integer vector to filename or stream.
+     Arguments:
+     file_or_fd : filename or opened file descriptor for writing,
+     p : the posterior to be stored,
+     key (optional) : used for writing ark-file, the utterance-id gets written before the posterior.
+
+     Example of writing single vector:
+     kaldi_io.write_post(filename, post)
+
+     Example of writing arkfile:
+     with open(ark_file,'w') as f:
+         for key, post in dict.iteritems():
+             kaldi_io.write_post(f, post, key=key)
+
+     Write single kaldi 'Posterior' in binary format.
+
+     The 'Posterior' is C++ type 'vector<vector<tuple<int,float> > >',
+     the outer-vector is usually time axis, inner-vector are the records
+     at given time,    and the tuple is composed of an 'index' (integer)
+     and a 'float-value'. The 'float-value' can represent a probability
+     or any other numeric value.
+
+    """
+    assert(isinstance(p, list)), str(type(p))
+    fd = open_or_fd(file_or_fd, mode='wb')
+    if sys.version_info[0] == 3:
+        assert(fd.mode == 'wb')
+    try:
+        if key != '':
+            fd.write((key+' ').encode("latin1"))  # ark-files have keys (utterance-id),
+        fd.write('\0B'.encode())  # we write binary!
+        fd.write('\4'.encode())  # int32 type,
+        fd.write(struct.pack(np.dtype('int32').char, len(p)))  # outer vec size
+        inner_vec_size = None
+        for inner_arr in p:
+            inner_arr_len = len(inner_arr)
+            inner_vec_size = inner_arr_len if inner_vec_size is None else inner_vec_size
+            assert inner_arr_len == inner_vec_size, str((key, inner_arr_len, inner_vec_size))
+            fd.write('\4'.encode())  # int32 type,
+            fd.write(struct.pack(np.dtype('int32').char, inner_vec_size))  # inner vec size
+            for idx, pv in inner_arr:
+                fd.write(struct.pack(np.dtype('int8').char, 4))  # size_idx
+                fd.write(struct.pack(np.dtype('int32').char, idx))
+                fd.write(struct.pack(np.dtype('int8').char, 4))  # size_post
+                fd.write(struct.pack(np.dtype('float32').char, pv))
+    finally:
+        if fd is not file_or_fd:
+            fd.close()
 
 #################################################
 # Kaldi Confusion Network bin begin/end times,
