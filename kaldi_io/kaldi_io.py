@@ -556,14 +556,13 @@ def _read_range_slice(fd, rows, cols, dtype, range_slice=None):
         end_col   = cols
         
     # We want to read the data using as few seek as possible. So the procedure will    
-    # be different depending on the properties of range_slice
-    
+    # be different depending on the properties of range_slice    
     if (start_col == 0 and end_col == cols):
         # In this case we can read consequtively
-        if fd.seekable():
-            header_offset = fd.tell()
-            fd.seek(header_offset + start_row*cols*sample_size )
-        else:
+        if fd.seekable():                                           # Comment 1: We only only read slices on seekable input. This should be      
+            header_offset = fd.tell()                               # every case except piped input, right? And there is no way that piped 
+            fd.seek(header_offset + start_row*cols*sample_size )    # could come with slice information since slice info is provided in scp. 
+        else:                                                       
             # In this case the input is pipe and there should be no offset
             assert (start_row ==0), ("Start row is %s but should be 0 for non-seekable data" %str(start_row))
             
@@ -577,10 +576,18 @@ def _read_range_slice(fd, rows, cols, dtype, range_slice=None):
         cols_to_read = end_col - start_col
         mat = np.zeros((rows_to_read, cols_to_read), dtype=dtype)
         for r in range(start_row, end_row):
-            fd.seek(header_offset + (r*cols + start_col)*sample_size )
+            fd.seek( header_offset + (r*cols + start_col)*sample_size )
             d = fd.read(cols_to_read*sample_size)
             mat[r-start_row,:] = (np.frombuffer(d, dtype=dtype, count=cols_to_read))
 
+    # Comment 2: Currently it is not supported to provide slice info via "read_mat_ark"
+    # If we want to extend it so it takes slice info as input i.e.
+    # read_mat_ark(file_or_fd, list_of_row_slices, list_of_col_slices) where "list_of_row_slices"
+    # contains one slice per key in the ark file we have to add something like this here:
+    # # Seek to the next key
+    #    fd.seek( header_offset + (end_row*cols + start_col)*sample_size )
+    # to make sure that we are at the start of the next key after data reading is done.
+            
     return mat
 
     
