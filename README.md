@@ -9,9 +9,9 @@ kaldi-io-for-python
 - Matrix (float, double)
 - Posterior (posteriors, nnet1 training targets, confusion networks, ...)
 
-#### Sclicing
+#### Scicing
 scp files can contain entries like
-"AMI_ES2011a_H00_FEE041_0003714_0003915_slice5 tests/data/feats.ark:14913[2:4,3:6]"
+``` AMI_ES2011a_H00_FEE041_0003714_0003915_slice5 tests/data/feats.ark:14913[2:4,3:6]```
 which in this case that row 2 and 3 and columns 3,4,5 are selected. For binary data
 with/without compression, only the relevant elements will be read from disk. For ASCII
 data, all data will be read and then sliced. Currently, only a step size of 1 is
@@ -46,8 +46,10 @@ with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
 
 ### Reading scp in form of a list
 It is als possible to read data using an "scp" stored in a python list of the form
+```
 ["AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[:,7:13]",
   "AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[20:30,7:13]"]
+```
 
 #### Install
 - from pypi: `python -m pip --user install kaldi_io`
