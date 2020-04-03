@@ -839,11 +839,16 @@ def read_cntime(file_or_fd):
 # Segments as 'Bool vectors' can be handy,
 # - for 'superposing' the segmentations,
 # - for frame-selection in Speaker-ID experiments,
-def read_segments_as_bool_vec(segments_file):
-    """ [ bool_vec ] = read_segments_as_bool_vec(segments_file)
-     using kaldi 'segments' file for 1 wav, format : '<utt> <rec> <t-beg> <t-end>'
+def read_segments_as_bool_vec(segments_file, return_key=False):
+    """ Synopsis:
+     bool_vec = read_segments_as_bool_vec(segments_file)
+     bool_vec, key = read_segments_as_bool_vec(segments_file, return_key=True)
+
+     Loads: kaldi 'segments' file for 1 wav, format : '<utt> <rec> <t-beg> <t-end>'
      - t-beg, t-end is in seconds,
      - assumed 100 frames/second,
+
+     Returns: np.array(dtype=bool), key is string.
     """
     segs = np.loadtxt(segments_file, dtype='object,object,f,f', ndmin=1)
     # Sanity checks,
@@ -856,5 +861,10 @@ def read_segments_as_bool_vec(segments_file):
     frms = np.repeat(np.r_[np.tile([False,True], len(end)), False],
                      np.r_[np.c_[start - np.r_[0, end[:-1]], end-start].flat, 0])
     assert np.sum(end-start) == np.sum(frms)
-    return frms
+
+    if return_key:
+        key = segs[0][1]
+        return frms, key
+    else:
+        return frms
 

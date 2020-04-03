@@ -44,7 +44,7 @@ python3 -m twine check dist/*
 }
 
 # Step 8: Put the packages to 'production' pypi,
-python3 -m twine upload --verbose dist/*
+python3 -m twine upload --verbose dist/* # (login,pwd) from https://pypi.org/account/login/
 python3 -m pip install --user kaldi_io
 python3 -m pip uninstall kaldi_io
 
