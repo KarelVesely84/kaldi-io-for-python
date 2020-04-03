@@ -47,13 +47,17 @@ class KaldiIoTest(unittest.TestCase):
         # read,
         flt_mat = { k:m for k,m in kaldi_io.read_mat_scp('tests/data/feats_ascii.scp') } # ascii-scp,
         flt_mat2 = { k:m for k,m in kaldi_io.read_mat_ark('tests/data/feats_ascii.ark') } # ascii-ark,
-        flt_mat3 = { k:m for k,m in kaldi_io.read_mat_ark('tests/data/feats.ark') } # ascii-ark,
+        flt_mat3 = { k:m for k,m in kaldi_io.read_mat_scp('tests/data/feats.scp') } # scp for binary,
+        flt_mat4 = { k:m for k,m in kaldi_io.read_mat_ark('tests/data/feats.ark') } # binary-ark,
+        flt_mat5 = { k:m for k,m in kaldi_io.read_mat_scp('tests/data/feats_compressed.scp') } # scp for compressed binary,
+        flt_mat6 = { k:m for k,m in kaldi_io.read_mat_ark('tests/data/feats_compressed.ark') } # compressed binary-ark,
+
         # store,
         with kaldi_io.open_or_fd('tests/data_re-saved/mat.ark','wb') as f:
-            for k,m in flt_mat3.items(): kaldi_io.write_mat(f, m, k)
+            for k,m in flt_mat6.items(): kaldi_io.write_mat(f, m, k)
         # read and compare,
         for k,m in kaldi_io.read_mat_ark('tests/data_re-saved/mat.ark'):
-            self.assertTrue(np.array_equal(m, flt_mat3[k]), msg="flt. matrix same after re-saving")
+            self.assertTrue(np.array_equal(m, flt_mat6[k]), msg="flt. matrix same after re-saving")
 
     def testPipeReadWrite(self):
         """
@@ -76,6 +80,24 @@ class KaldiIoTest(unittest.TestCase):
             i32_vec3 = { k:v for k,v in kaldi_io.read_vec_int_ark('ark:copy-int-vector ark:tests/data/ali.ark ark:- |') }
             flt_vec4 = { k:v for k,v in kaldi_io.read_vec_flt_ark('ark:copy-vector ark:tests/data/conf.ark ark:- |') }
 
+
+    def testListScp(self):
+        print ("list scp")
+        scp = ["AMI_ES2011a_H00_FEE041_0003427_0003714 tests/data/feats.ark:39",
+               "AMI_ES2011a_H00_FEE041_0003714_0003915 tests/data/feats.ark:14913",
+               "AMI_ES2011a_H00_FEE041_0003714_0003915_slice1 tests/data/feats.ark:14913[:]",
+               "AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[0:5]",
+               "AMI_ES2011a_H00_FEE041_0003714_0003915_slice3 tests/data/feats.ark:14913[:,7:13]",
+               "AMI_ES2011a_H00_FEE041_0003714_0003915_slice4 tests/data/feats.ark:14913[20:30,7:13]"]
+
+        flt_mat = { k:m for k,m in kaldi_io.read_mat_scp(scp) } # ascii-scp,
+
+        # store,
+        with kaldi_io.open_or_fd('tests/data_re-saved/mat_listScp.ark','wb') as f:
+            for k,m in flt_mat.items(): kaldi_io.write_mat(f, m, k)
+        # read and compare,
+        for k,m in kaldi_io.read_mat_ark('tests/data_re-saved/mat_listScp.ark'):
+            self.assertTrue(np.array_equal(m, flt_mat[k]), msg="flt. matrix same after re-saving")
 
 class PosteriorIOTest(unittest.TestCase):
     def testWriteReadPosteriors(self):

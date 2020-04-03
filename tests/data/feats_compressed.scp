@@ -1,0 +1,6 @@
+AMI_ES2011a_H00_FEE041_0003427_0003714 tests/data/feats_compressed.ark:39
+AMI_ES2011a_H00_FEE041_0003714_0003915 tests/data/feats_compressed.ark:3908
+AMI_ES2011a_H00_FEE041_0003714_0003915_slice1 tests/data/feats_compressed.ark:3908[:]
+AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats_compressed.ark:3908[0:5]
+AMI_ES2011a_H00_FEE041_0003714_0003915_slice3 tests/data/feats_compressed.ark:3908[:,7:13]
+AMI_ES2011a_H00_FEE041_0003714_0003915_slice4 tests/data/feats_compressed.ark:3908[20:30,7:13]
