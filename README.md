@@ -44,8 +44,8 @@ with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
     kaldi_io.write_mat(f, mat, key=key)
 ```
 
-### Reading scp in form of a list
-It is als possible to read data using an "scp" stored in a python list of the form
+###### Reading scp in form of a list
+It is also possible to read data using an "scp" stored in a python list of the form
 ```
 ["AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[:,7:13]",
   "AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[20:30,7:13]"]
