@@ -206,9 +206,9 @@ def write_vec_int(file_or_fd, v, key=''):
              kaldi_io.write_vec_flt(f, vec, key=key)
     """
     assert(isinstance(v, np.ndarray))
-    assert(v.dtype == np.int32)
+    assert(v.dtype == np.int32), v.dtype
     fd = open_or_fd(file_or_fd, mode='wb')
-    if sys.version_info[0] == 3: assert(fd.mode == 'wb')
+    if sys.version_info[0] == 3: assert(fd.mode == 'wb'), fd.mode
     try:
         if key != '' : fd.write((key+' ').encode("latin1")) # ark-files have keys (utterance-id),
         fd.write('\0B'.encode()) # we write binary!
@@ -289,7 +289,7 @@ def _read_vec_flt_binary(fd):
     if header == 'FV ' : sample_size = 4 # floats
     elif header == 'DV ' : sample_size = 8 # doubles
     else : raise UnknownVectorHeader("The header contained '%s'" % header)
-    assert (sample_size > 0)
+    assert (sample_size > 0), sample_size
     # Dimension,
     assert (fd.read(1).decode() == '\4'); # int-size
     vec_size = np.frombuffer(fd.read(4), dtype='int32', count=1)[0] # vector dim
@@ -320,9 +320,9 @@ def write_vec_flt(file_or_fd, v, key=''):
          for key,vec in dict.iteritems():
              kaldi_io.write_vec_flt(f, vec, key=key)
     """
-    assert(isinstance(v, np.ndarray))
+    assert(isinstance(v, np.ndarray)), type(v)
     fd = open_or_fd(file_or_fd, mode='wb')
-    if sys.version_info[0] == 3: assert(fd.mode == 'wb')
+    if sys.version_info[0] == 3: assert(fd.mode == 'wb'), fd.mode
     try:
         if key != '' : fd.write((key+' ').encode("latin1")) # ark-files have keys (utterance-id),
         fd.write('\0B'.encode()) # we write binary!
@@ -441,7 +441,7 @@ def read_mat(file_or_fd):
         if binary == '\0B' :
             mat = _read_mat_binary(fd)
         else:
-            assert(binary == ' [')
+            assert(binary == ' ['), binary
             mat = _read_mat_ascii(fd)
     finally:
         if fd is not file_or_fd: fd.close()
@@ -455,7 +455,7 @@ def _read_mat_binary(fd):
     elif header == 'FM ': sample_size = 4 # floats
     elif header == 'DM ': sample_size = 8 # doubles
     else: raise UnknownMatrixHeader("The header contained '%s'" % header)
-    assert(sample_size > 0)
+    assert(sample_size > 0), sample_size
     # Dimensions
     s1, rows, s2, cols = np.frombuffer(fd.read(10), dtype='int8,int32,int8,int32', count=1)[0]
     # Read whole matrix
@@ -486,7 +486,7 @@ def _read_compressed_mat(fd, format):
         see: https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.h
         methods: CompressedMatrix::Read(...), CompressedMatrix::CopyToMat(...),
     """
-    assert(format == 'CM ') # The formats CM2, CM3 are not supported...
+    assert(format == 'CM '), format # The formats CM2, CM3 are not supported...
 
     # Format of header 'struct',
     global_header = np.dtype([('minvalue','float32'),('range','float32'),('num_rows','int32'),('num_cols','int32')]) # member '.format' is not written,
@@ -534,10 +534,10 @@ def write_mat(file_or_fd, m, key=''):
          for key,mat in dict.iteritems():
              kaldi_io.write_mat(f, mat, key=key)
     """
-    assert(isinstance(m, np.ndarray))
+    assert(isinstance(m, np.ndarray)), type(m)
     assert(len(m.shape) == 2), "'m' has to be 2d matrix!"
     fd = open_or_fd(file_or_fd, mode='wb')
-    if sys.version_info[0] == 3: assert(fd.mode == 'wb')
+    if sys.version_info[0] == 3: assert(fd.mode == 'wb'), fd.mode
     try:
         if key != '' : fd.write((key+' ').encode("latin1")) # ark-files have keys (utterance-id),
         fd.write('\0B'.encode()) # we write binary!
@@ -637,7 +637,7 @@ def read_post(file_or_fd):
     """
     fd = open_or_fd(file_or_fd)
     ans=[]
-    binary = fd.read(2).decode(); assert(binary == '\0B'); # binary flag
+    binary = fd.read(2).decode(); assert(binary == '\0B'), binary # binary flag
     assert(fd.read(1).decode() == '\4'); # int-size
     outer_vec_size = np.frombuffer(fd.read(4), dtype='int32', count=1)[0] # number of frames (or bins)
 
@@ -646,8 +646,8 @@ def read_post(file_or_fd):
         assert(fd.read(1).decode() == '\4'); # int-size
         inner_vec_size = np.frombuffer(fd.read(4), dtype='int32', count=1)[0] # number of records for frame (or bin)
         data = np.frombuffer(fd.read(inner_vec_size*10), dtype=[('size_idx','int8'),('idx','int32'),('size_post','int8'),('post','float32')], count=inner_vec_size)
-        assert(data[0]['size_idx'] == 4)
-        assert(data[0]['size_post'] == 4)
+        assert(data[0]['size_idx'] == 4), data[0]['size_idx']
+        assert(data[0]['size_post'] == 4), data[0]['size_post']
         ans.append(data[['idx','post']].tolist())
 
     if fd is not file_or_fd: fd.close()
@@ -681,7 +681,7 @@ def write_post(file_or_fd, p, key=''):
     assert(isinstance(p, list)), str(type(p))
     fd = open_or_fd(file_or_fd, mode='wb')
     if sys.version_info[0] == 3:
-        assert(fd.mode == 'wb')
+        assert(fd.mode == 'wb'), fd.mode
     try:
         if key != '':
             fd.write((key+' ').encode("latin1"))  # ark-files have keys (utterance-id),
@@ -744,14 +744,14 @@ def read_cntime(file_or_fd):
      Returns vector of tuples.
     """
     fd = open_or_fd(file_or_fd)
-    binary = fd.read(2).decode(); assert(binary == '\0B'); # assuming it's binary
+    binary = fd.read(2).decode(); assert(binary == '\0B'), binary # assuming it's binary
 
     assert(fd.read(1).decode() == '\4'); # int-size
     vec_size = np.frombuffer(fd.read(4), dtype='int32', count=1)[0] # number of frames (or bins)
 
     data = np.frombuffer(fd.read(vec_size*10), dtype=[('size_beg','int8'),('t_beg','float32'),('size_end','int8'),('t_end','float32')], count=vec_size)
-    assert(data[0]['size_beg'] == 4)
-    assert(data[0]['size_end'] == 4)
+    assert(data[0]['size_beg'] == 4), data[0]['size_beg']
+    assert(data[0]['size_end'] == 4), data[0]['size_end']
     ans = data[['t_beg','t_end']].tolist() # Return vector of tuples (t_beg,t_end),
 
     if fd is not file_or_fd : fd.close()
