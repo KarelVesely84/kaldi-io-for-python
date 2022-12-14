@@ -124,7 +124,8 @@ def read_key(fd):
     """ [key] = read_key(fd)
      Read the utterance-key from the opened ark/stream descriptor 'fd'.
     """
-    assert('b' in fd.mode), "Error: 'fd' was opened in text mode (in python3 use sys.stdin.buffer)"
+    if type(fd.mode) is str:
+        assert('b' in fd.mode), "Error: 'fd' was opened in text mode (in python3 use sys.stdin.buffer)"
 
     key = ''
     while 1:
@@ -184,7 +185,7 @@ def read_vec_int(file_or_fd):
             arr.remove('['); arr.remove(']') # optionally
         except ValueError:
             pass
-        ans = np.array(arr, dtype=int)
+        ans = np.array(arr, dtype='i4')
     if fd is not file_or_fd : fd.close() # cleanup
     return ans
 
