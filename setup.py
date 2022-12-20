@@ -20,7 +20,7 @@ if sys.version_info[0] < 3: long_description = "" # avoid syntax errors (markdow
 
 setuptools.setup(
     name='kaldi_io',
-    version='0.9.4',
+    version='0.9.5',
     author='Karel Vesely',
     description='Glue code connecting Kaldi data and Python.',
     long_description=long_description,
