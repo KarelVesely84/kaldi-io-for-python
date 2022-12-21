@@ -8,7 +8,7 @@ from __future__ import print_function
 from __future__ import division
 
 import numpy as np
-import sys, os, re, gzip, struct
+import sys, os, re, gzip, struct, io
 
 #################################################
 # Adding 'kaldi binaries' to shell path,
@@ -355,19 +355,30 @@ def read_mat_scp(file_or_fd):
 
      Read scp to a 'dictionary':
      d = { key:mat for key,mat in kaldi_io.read_mat_scp(file) }
+
+    The scp can also be in a list of the form
+    ["AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[:,7:13]",
+     "AMI_ES2011a_H00_FEE041_0003714_0003915_slice2 tests/data/feats.ark:14913[20:30,7:13]"]
+
     """
-    fd = open_or_fd(file_or_fd)
+    if isinstance(file_or_fd, list): fd = file_or_fd
+    else: fd = open_or_fd(file_or_fd)
+    
     try:
         for line in fd:
-            (key, rxfile) = line.decode().split(' ')
+            
+            if isinstance(line, str): (key, rxfile) = line.split(' ')
+            else: (key, rxfile) = line.decode().split(' ')
+            
             (rxfile, range_slice) = _strip_mat_range(rxfile)
 
-            # TODO, this reads whole file, and then selects the range.
-            # A faster solution would be to change API of read_mat() and load just the frames we need...
-            mat = read_mat(rxfile)
-            if range_slice is not None: mat = (mat[range_slice]).copy() # apply the range_slice,
-            #
-
+            if range_slice is not None:
+                if ( (range_slice[0].step != None) or (len(range_slice)==2 and (range_slice[1].step != None)) ):
+                    raise NotImplementedError("Step other than 1 in slices is currently not supported.")
+                mat = read_mat(rxfile, range_slice)
+            else:
+                mat = read_mat(rxfile)
+                
             yield key, mat
     finally:
         if fd is not file_or_fd : fd.close()
@@ -431,7 +442,8 @@ def _strip_mat_range(rxfile_with_range):
     return (rxfile, tuple(slice_arr))
 
 
-def read_mat(file_or_fd):
+
+def read_mat(file_or_fd, range_slice=None):
     """ [mat] = read_mat(file_or_fd)
      Reads single kaldi matrix, supports ascii and binary.
      file_or_fd : file, gzipped file, pipe or opened file descriptor.
@@ -440,32 +452,29 @@ def read_mat(file_or_fd):
     try:
         binary = fd.read(2).decode()
         if binary == '\0B' :
-            mat = _read_mat_binary(fd)
+            mat = _read_mat_binary(fd, range_slice)
         else:
-            assert(binary == ' [')
             mat = _read_mat_ascii(fd)
+            if range_slice is not None: mat = (mat[range_slice]).copy()
+            
     finally:
         if fd is not file_or_fd: fd.close()
     return mat
 
-def _read_mat_binary(fd):
+
+def _read_mat_binary(fd, range_slice=None):
     # Data type
     header = fd.read(3).decode()
     # 'CM', 'CM2', 'CM3' are possible values,
-    if header.startswith('CM'): return _read_compressed_mat(fd, header)
-    elif header == 'FM ': sample_size = 4 # floats
-    elif header == 'DM ': sample_size = 8 # doubles
+    if header.startswith('CM'): return _read_compressed_mat(fd, header, range_slice)
+    elif header == 'FM ': floatX ='float32' # floats
+    elif header == 'DM ': floatX = 'float64' # doubles
     else: raise UnknownMatrixHeader("The header contained '%s'" % header)
-    assert(sample_size > 0)
+
     # Dimensions
     s1, rows, s2, cols = np.frombuffer(fd.read(10), dtype='int8,int32,int8,int32', count=1)[0]
-    # Read whole matrix
-    buf = fd.read(rows * cols * sample_size)
-    if sample_size == 4 : vec = np.frombuffer(buf, dtype='float32')
-    elif sample_size == 8 : vec = np.frombuffer(buf, dtype='float64')
-    else : raise BadSampleSize
-    mat = np.reshape(vec,(rows,cols))
-    return mat
+    return _read_range_slice(fd, rows, cols, floatX, range_slice=range_slice)
+
 
 def _read_mat_ascii(fd):
     rows = []
@@ -482,13 +491,13 @@ def _read_mat_ascii(fd):
             return mat
 
 
-def _read_compressed_mat(fd, format):
+def _read_compressed_mat(fd, format, range_slice):
     """ Read a compressed matrix,
         see: https://github.com/kaldi-asr/kaldi/blob/master/src/matrix/compressed-matrix.h
         methods: CompressedMatrix::Read(...), CompressedMatrix::CopyToMat(...),
     """
     assert(format == 'CM ') # The formats CM2, CM3 are not supported...
-
+    
     # Format of header 'struct',
     global_header = np.dtype([('minvalue','float32'),('range','float32'),('num_rows','int32'),('num_cols','int32')]) # member '.format' is not written,
     per_col_header = np.dtype([('percentile_0','uint16'),('percentile_25','uint16'),('percentile_75','uint16'),('percentile_100','uint16')])
@@ -496,17 +505,25 @@ def _read_compressed_mat(fd, format):
     # Read global header,
     globmin, globrange, rows, cols = np.frombuffer(fd.read(16), dtype=global_header, count=1)[0]
 
+    # Standardize range_slice
+    if range_slice is None: range_slice = (slice(None,None,None),slice(None,None,None))
+    elif len(range_slice) ==1 : range_slice = (range_slice[0],slice(None,None,None))
+    
     # The data is structed as [Colheader, ... , Colheader, Data, Data , .... ]
     #                                                 {                     cols                     }{         size                 }
-    col_headers = np.frombuffer(fd.read(cols*8), dtype=per_col_header, count=cols)
+    col_headers = np.frombuffer(fd.read(cols*8), dtype=per_col_header, count=cols)[range_slice[1]]
     col_headers = np.array([np.array([x for x in y]) * globrange * 1.52590218966964e-05 + globmin for y in col_headers], dtype=np.float32)
-    data = np.reshape(np.frombuffer(fd.read(cols*rows), dtype='uint8', count=cols*rows), newshape=(cols,rows)) # stored as col-major,
 
-    mat = np.zeros((cols,rows), dtype='float32')
+    # Note that, contrary to standard matrices, the compressed matrices are column-major
+    # so we need to flip rows and colums when using the below function for reading.
+    data = _read_range_slice(fd, cols, rows, 'uint8', range_slice=(range_slice[1],range_slice[0]))
+    
+    mat = np.zeros_like(data, dtype='float32')
     p0 = col_headers[:, 0].reshape(-1, 1)
     p25 = col_headers[:, 1].reshape(-1, 1)
     p75 = col_headers[:, 2].reshape(-1, 1)
     p100 = col_headers[:, 3].reshape(-1, 1)
+
     mask_0_64 = (data <= 64)
     mask_193_255 = (data > 192)
     mask_65_192 = (~(mask_0_64 | mask_193_255))
@@ -518,6 +535,63 @@ def _read_compressed_mat(fd, format):
     return mat.T # transpose! col-major -> row-major,
 
 
+def _read_range_slice(fd, rows, cols, dtype, range_slice=None):
+
+    if (dtype == 'float32'): sample_size=4
+    elif (dtype == 'float64'): sample_size=8
+    elif (dtype == 'uint8'): sample_size=1
+    else: raise UnsupportedDataType("Data type was %s" % str(dtype))
+    
+    # Find the start and end indices etc.
+    if range_slice is None: range_slice = (slice(None,None,None),slice(None,None,None))
+    #
+    start_row    = 0 if range_slice[0].start is None else range_slice[0].start
+    end_row      = rows if range_slice[0].stop is None else range_slice[0].stop
+    rows_to_read = end_row - start_row
+    #
+    if (len(range_slice)==2):
+        start_col = 0 if range_slice[1].start is None else range_slice[1].start
+        end_col   = cols if range_slice[1].stop is None else range_slice[1].stop
+    else:
+        start_col = 0
+        end_col   = cols
+        
+    # We want to read the data using as few seek as possible. So the procedure will    
+    # be different depending on the properties of range_slice    
+    if (start_col == 0 and end_col == cols):
+        # In this case we can read consequtively
+        if fd.seekable():                                           # Comment 1: We only only read slices on seekable input. This should be      
+            header_offset = fd.tell()                               # every case except piped input, right? And there is no way that piped 
+            fd.seek(header_offset + start_row*cols*sample_size )    # could come with slice information since slice info is provided in scp. 
+        else:                                                       
+            # In this case the input is pipe and there should be no offset
+            assert (start_row ==0), ("Start row is %s but should be 0 for non-seekable data" %str(start_row))
+            
+        buf = fd.read(rows_to_read * cols * sample_size)
+        vec = np.frombuffer(buf, dtype=dtype)
+        mat = np.reshape(vec,(rows_to_read,cols))
+    else:
+        # In this case we need to read at different places
+        assert fd.seekable(), ("fd %str(fd)is not seekable" % str(fd) )  # Again, this should not happend for pipes
+        header_offset = fd.tell()
+        cols_to_read = end_col - start_col
+        mat = np.zeros((rows_to_read, cols_to_read), dtype=dtype)
+        for r in range(start_row, end_row):
+            fd.seek( header_offset + (r*cols + start_col)*sample_size )
+            d = fd.read(cols_to_read*sample_size)
+            mat[r-start_row,:] = (np.frombuffer(d, dtype=dtype, count=cols_to_read))
+
+    # Comment 2: Currently it is not supported to provide slice info via "read_mat_ark"
+    # If we want to extend it so it takes slice info as input i.e.
+    # read_mat_ark(file_or_fd, list_of_row_slices, list_of_col_slices) where "list_of_row_slices"
+    # contains one slice per key in the ark file we have to add something like this here:
+    # # Seek to the next key
+    #    fd.seek( header_offset + (end_row*cols + start_col)*sample_size )
+    # to make sure that we are at the start of the next key after data reading is done.
+            
+    return mat
+
+    
 # Writing,
 def write_mat(file_or_fd, m, key=''):
     """ write_mat(f, m, key='')
