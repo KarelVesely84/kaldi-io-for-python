@@ -14,13 +14,9 @@ from io import open
 with open("README.md", "r", encoding='utf-8') as fh:
     long_description = fh.read()
 
-# Python 2 (override)
-import sys
-if sys.version_info[0] < 3: long_description = "" # avoid syntax errors (markdown is broken in python2)
-
 setuptools.setup(
     name='kaldi_io',
-    version='0.9.5',
+    version='0.9.6',
     author='Karel Vesely',
     description='Glue code connecting Kaldi data and Python.',
     long_description=long_description,
