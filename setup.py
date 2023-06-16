@@ -16,7 +16,7 @@ with open("README.md", "r", encoding='utf-8') as fh:
 
 setuptools.setup(
     name='kaldi_io',
-    version='0.9.7',
+    version='0.9.8',
     author='Karel Vesely',
     description='Glue code connecting Kaldi data and Python.',
     long_description=long_description,
