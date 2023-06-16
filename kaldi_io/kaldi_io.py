@@ -321,7 +321,7 @@ def write_vec_flt(file_or_fd, v, key=''):
          for key,vec in dict.iteritems():
              kaldi_io.write_vec_flt(f, vec, key=key)
     """
-    assert(isinstance(v, np.ndarray))
+    assert(isinstance(v, np.ndarray)), (type(v), v)
     fd = open_or_fd(file_or_fd, mode='wb')
     if sys.version_info[0] == 3: assert(fd.mode == 'wb')
     try:
