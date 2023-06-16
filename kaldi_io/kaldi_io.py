@@ -344,7 +344,7 @@ def write_vec_flt(file_or_fd, v, key=''):
 # Float matrices (features, transformations, ...),
 
 # Reading,
-            
+
 def read_mat_scp(file_or_fd):
     """ generator(key,mat) = read_mat_scp(file_or_fd)
      Returns generator of (key,matrix) tuples, read according to kaldi scp.
@@ -358,9 +358,7 @@ def read_mat_scp(file_or_fd):
      d = { key:mat for key,mat in kaldi_io.read_mat_scp(file) }
     """
     fd = open_or_fd(file_or_fd)
-    cnt_success = 0
-    cnt_broken = 0
-    
+
     for line in fd:
         try:
             (key, rxfile) = line.decode().split(' ')
@@ -370,13 +368,10 @@ def read_mat_scp(file_or_fd):
             # A faster solution would be to change API of read_mat() and load just the frames we need...
             mat = read_mat(rxfile)
             if range_slice is not None: mat = (mat[range_slice]).copy() # apply the range_slice,
-            cnt_success = cnt_success + 1
             yield key, mat
         except:
-            print('Error: ', key)
-            cnt_broken = cnt_broken + 1
-    
-    print('Count success reads: {}, count broken files: {}'.format(cnt_success, cnt_broken))
+            print(f"WARNING: error reading matrix, key: {key}, (it is skipped)")
+
     if fd is not file_or_fd: fd.close()
 
 def read_mat_ark(file_or_fd):
