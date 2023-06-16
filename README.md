@@ -39,7 +39,7 @@ with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
 #### Install
 - from pypi:
 ```
-pip install kaldi_io`
+pip install kaldi_io
 ```
 
 - from sources:
