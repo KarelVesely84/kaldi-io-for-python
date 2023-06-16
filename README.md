@@ -37,19 +37,24 @@ with kaldi_io.open_or_fd(ark_scp_output,'wb') as f:
 ```
 
 #### Install
-- from pypi: `python -m pip --user install kaldi_io`
-- from sources:
-  - `git clone https://github.com/vesis84/kaldi-io-for-python.git <kaldi-io-dir>`
-  - `python setup.py install` (default python)
-- for local development use: `export PYTHONPATH=${PYTHONPATH}:<kaldi-io-dir>` in `$HOME/.bashrc`
+- from pypi:
+```
+pip install kaldi_io`
+```
 
-Note: it is recommended to set `$KALDI_ROOT` in your `$HOME/.bashrc` as
-`export KALDI_ROOT=<some_kaldi_dir>`, so you can read/write using
-pipes which contain kaldi binaries.
+- from sources:
+```
+git clone https://github.com/vesis84/kaldi-io-for-python.git <kaldi-io-dir>`
+pip install -r requirements.txt
+pip install --editable .
+```
+
+Note: it is recommended to set `export KALDI_ROOT=<some_kaldi_dir>` environment variable.
+The I/O based on pipes can then contain kaldi binaries.
 
 #### Unit tests
 
-(note: these are not included in pypi installation)
+(note: these are not included in pypi package)
 
 Unit tests are started this way:
 
@@ -64,10 +69,8 @@ or by:
 #### License
 Apache License, Version 2.0 ('LICENSE-2.0.txt')
 
-#### Contact
-- If you have an extension to share, please create a pull request.
-- For feedback and suggestions, please create a GitHub 'Issue' in the project.
-- For the positive reactions =) I am also reachable by email: vesis84@gmail.com
-
+#### Community
+- accepting pull requests with extensions on GitHub
+- accepting feedback via GitHub 'Issues' in the repo
 
 
