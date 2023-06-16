@@ -49,6 +49,8 @@ pipes which contain kaldi binaries.
 
 #### Unit tests
 
+(note: these are not included in pypi installation)
+
 Unit tests are started this way:
 
 `./run_tests.sh`

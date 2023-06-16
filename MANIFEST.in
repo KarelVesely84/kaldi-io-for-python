@@ -1,0 +1,6 @@
+# MANIFEST.in
+#   folders can be included/excluded, see the docs:
+#   https://packaging.python.org/en/latest/guides/using-manifest-in/
+
+recursive-exclude tests * # exclude 'tests' folder
+
