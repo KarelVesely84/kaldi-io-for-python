@@ -47,6 +47,17 @@ Note: it is recommended to set `$KALDI_ROOT` in your `$HOME/.bashrc` as
 `export KALDI_ROOT=<some_kaldi_dir>`, so you can read/write using
 pipes which contain kaldi binaries.
 
+#### Unit tests
+
+Unit tests are started this way:
+
+`./run_tests.sh`
+
+or by:
+
+`python3 -m unittest discover -s tests -t .`
+`python2 -m unittest discover -s tests -t .`
+
 
 #### License
 Apache License, Version 2.0 ('LICENSE-2.0.txt')

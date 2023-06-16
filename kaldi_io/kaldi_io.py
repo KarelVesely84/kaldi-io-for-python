@@ -370,7 +370,7 @@ def read_mat_scp(file_or_fd):
             if range_slice is not None: mat = (mat[range_slice]).copy() # apply the range_slice,
             yield key, mat
         except:
-            print(f"WARNING: error reading matrix, key: {key}, (it is skipped)")
+            print("WARNING: error reading matrix, key: %s, (it is skipped)" % key)
 
     if fd is not file_or_fd: fd.close()
 
